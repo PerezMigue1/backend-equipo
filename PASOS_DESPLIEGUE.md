@@ -22,7 +22,10 @@
 3. Conecta tu repositorio de GitHub
 4. Selecciona el repositorio: `PerezMigue1/backend-equipo`
 5. Render detectará automáticamente el archivo `render.yaml`
-6. Haz clic en **"Apply"**
+6. Verifica que no haya errores en la configuración
+7. Haz clic en **"Apply"**
+
+**Nota**: El `render.yaml` está configurado para usar Docker (`env: docker`), por lo que Render usará el `Dockerfile` para construir la aplicación.
 
 ## Paso 4: Configurar Variables de Entorno
 
@@ -35,14 +38,14 @@ Una vez que Render cree el servicio, necesitas configurar las variables de entor
 ### Variables Críticas:
 
 ```env
-MONGODB_URI=mongodb+srv://usuario:password@cluster.mongodb.net/?retryWrites=true&w=majority
+MONGODB_URI=mongodb+srv://usuario:password@cluster.mongodb.net/database?retryWrites=true&w=majority
 MONGODB_DATABASE=equipo
-FRONTEND_URL=https://tu-frontend.vercel.app
+FRONTEND_URL=https://modulo-usuario.netlify.app
 GOOGLE_CLIENT_ID=tu_google_client_id
 GOOGLE_CLIENT_SECRET=tu_google_client_secret
 FACEBOOK_CLIENT_ID=tu_facebook_client_id
 FACEBOOK_CLIENT_SECRET=tu_facebook_client_secret
-CORS_ALLOWED_ORIGINS=https://tu-frontend.vercel.app,http://localhost:3000
+CORS_ALLOWED_ORIGINS=https://modulo-usuario.netlify.app,http://localhost:3000
 ```
 
 ### Generar APP_KEY:
