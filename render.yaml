@@ -1,0 +1,44 @@
+services:
+  - type: web
+    name: ModuloUsuario
+    buildCommand: |
+      composer install --no-dev --optimize-autoloader
+      npm ci
+      npm run build
+    startCommand: /var/www/html/start.sh
+    envVars:
+      - key: APP_NAME
+        value: Laravel App
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: false
+      - key: APP_KEY
+        generateValue: true
+      - key: APP_URL
+        fromService:
+          type: web
+          name: ModuloUsuario
+          property: host
+      - key: LOG_CHANNEL
+        value: stderr
+      - key: LOG_LEVEL
+        value: error
+      - key: MONGODB_URI
+        sync: false
+      - key: CACHE_STORE
+        value: file
+      - key: SESSION_DRIVER
+        value: file
+      - key: QUEUE_CONNECTION
+        value: sync
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_REDIRECT_URI
+        fromService:
+          type: web
+          name: ModuloUsuario
+          property: host
+    healthCheckPath: /
