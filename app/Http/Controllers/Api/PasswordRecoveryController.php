@@ -33,7 +33,10 @@ class PasswordRecoveryController extends Controller
             ], 404);
         }
 
-        if (!isset($user->pregunta_secreta) || !is_array($user->pregunta_secreta)) {
+        // Obtener pregunta_secreta como array (decodifica JSON automáticamente)
+        $preguntaSecreta = $user->getPreguntaSecretaArray();
+        
+        if (!$preguntaSecreta || !isset($preguntaSecreta['pregunta'])) {
             return response()->json([
                 'errors' => ['email' => ['Este usuario no tiene una pregunta secreta configurada.']],
             ], 404);
@@ -41,7 +44,7 @@ class PasswordRecoveryController extends Controller
 
         return response()->json([
             'email' => $user->email,
-            'pregunta_secreta' => $user->pregunta_secreta['pregunta'],
+            'pregunta_secreta' => $preguntaSecreta['pregunta'],
         ]);
     }
 
@@ -69,8 +72,12 @@ class PasswordRecoveryController extends Controller
             ], 404);
         }
 
-        $respuestaCorrecta = isset($user->pregunta_secreta['respuesta']) &&
-                            strtolower($user->pregunta_secreta['respuesta']) === strtolower($request->respuesta_secreta);
+        // Obtener pregunta_secreta como array (decodifica JSON automáticamente)
+        $preguntaSecreta = $user->getPreguntaSecretaArray();
+        
+        $respuestaCorrecta = $preguntaSecreta && 
+                            isset($preguntaSecreta['respuesta']) &&
+                            strtolower($preguntaSecreta['respuesta']) === strtolower($request->respuesta_secreta);
 
         if (!$respuestaCorrecta) {
             return response()->json([
@@ -110,9 +117,13 @@ class PasswordRecoveryController extends Controller
             ], 404);
         }
 
+        // Obtener pregunta_secreta como array (decodifica JSON automáticamente)
+        $preguntaSecreta = $user->getPreguntaSecretaArray();
+        
         // Verificar respuesta secreta antes de actualizar
-        if (!isset($user->pregunta_secreta['respuesta']) ||
-            strtolower($user->pregunta_secreta['respuesta']) !== strtolower($request->respuesta_secreta)) {
+        if (!$preguntaSecreta || 
+            !isset($preguntaSecreta['respuesta']) ||
+            strtolower($preguntaSecreta['respuesta']) !== strtolower($request->respuesta_secreta)) {
             return response()->json([
                 'errors' => ['respuesta_secreta' => ['La respuesta secreta no es correcta.']],
             ], 422);

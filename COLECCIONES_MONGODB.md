@@ -13,8 +13,8 @@ Este backend Laravel solo requiere **2 colecciones** en MongoDB:
 - `name` (string)
 - `email` (string, único)
 - `password` (string, hasheado)
-- `pregunta_secreta` (array: `pregunta`, `respuesta`)
-- `respuesta_secreta` (string)
+- `pregunta_secreta` (string JSON: `{"pregunta":"...","respuesta":"..."}`)
+- `remember_token` (string, opcional)
 - `google_id` (string, opcional)
 - `facebook_id` (string, opcional)
 - `two_factor_secret` (string, opcional)
@@ -97,28 +97,37 @@ Para verificar que solo se usan estas 2 colecciones:
 ```json
 {
   "_id": ObjectId("..."),
-  "name": "Juan Pérez",
-  "email": "juan@example.com",
-  "password": "$2y$10$...",
-  "pregunta_secreta": {
-    "pregunta": "¿Cuál es el nombre de tu mascota?",
-    "respuesta": "Fido"
-  },
-  "google_id": "123456789",
-  "facebook_id": null,
-  "created_at": ISODate("2024-01-01T00:00:00Z"),
-  "updated_at": ISODate("2024-01-01T00:00:00Z")
+  "name": "francisco",
+  "email": "valdesfrancis768@gmail.com",
+  "password": "$2y$12$...",
+  "pregunta_secreta": "{\"pregunta\":\"¿Cuál es el nombre de tu primera mascota?\",\"respuesta\":\"Doki\"}",
+  "remember_token": "...",
+  "created_at": ISODate("2025-10-30T01:14:00.479Z"),
+  "updated_at": ISODate("2025-10-30T01:15:02.479Z")
 }
+```
+
+**Nota:** `pregunta_secreta` se almacena como **string JSON** con caracteres Unicode escapados (ej: `\u00bf` para `¿`). El modelo User convierte automáticamente entre string JSON y array usando los accessors/mutators.
+
+**Ejemplo real:**
+```json
+"pregunta_secreta": "{\"pregunta\":\"\\u00bfCu\\u00e1l es el nombre de tu primera mascota?\",\"respuesta\":\"Doki\"}"
+```
+
+Cuando se accede desde el código PHP, se convierte automáticamente a:
+```php
+['pregunta' => '¿Cuál es el nombre de tu primera mascota?', 'respuesta' => 'Doki']
 ```
 
 ### Colección `recuperar-password`
 ```json
 {
   "_id": ObjectId("..."),
-  "pregunta": "¿Cuál es el nombre de tu mascota?",
-  "activo": true
+  "pregunta": "¿Cuál fue tu primera escuela?"
 }
 ```
+
+**Nota:** Esta colección contiene documentos simples con solo `_id` y `pregunta`. No hay campos adicionales como `activo`.
 
 ---
 
@@ -146,9 +155,49 @@ En Render, las variables de entorno están configuradas para:
 
 ---
 
+## 🔄 Flujo de la Aplicación
+
+### Registro de Usuario
+- **Endpoint:** `POST /api/register`
+- **Controlador:** `App\Http\Controllers\Api\RegisterController`
+- **Acción:** `App\Actions\Fortify\CreateNewUser`
+- **Colección:** `usuario` ✅
+- **Campos guardados:** `name`, `email`, `password`, `pregunta_secreta` (como JSON)
+
+### Login de Usuario
+- **Endpoint:** `POST /api/login`
+- **Controlador:** `App\Http\Controllers\Api\AuthController`
+- **Colección:** `usuario` ✅
+- **Operación:** Busca usuario por `email` y verifica `password`
+
+### Login con Google
+- **Endpoint:** `GET /api/auth/google/callback`
+- **Controlador:** `App\Http\Controllers\Api\GoogleAuthController`
+- **Colección:** `usuario` ✅
+- **Operación:** Crea o actualiza usuario con `google_id`
+
+### Login con Facebook
+- **Endpoint:** `GET /api/auth/facebook/callback`
+- **Controlador:** `App\Http\Controllers\Api\FacebookAuthController`
+- **Colección:** `usuario` ✅
+- **Operación:** Crea o actualiza usuario con `facebook_id`
+
+### Recuperar Contraseña
+- **Endpoints:** 
+  - `POST /api/password/verify-email` - Verifica email y devuelve pregunta secreta
+  - `POST /api/password/verify-answer` - Verifica respuesta secreta
+  - `POST /api/password/update` - Actualiza contraseña
+- **Controlador:** `App\Http\Controllers\Api\PasswordRecoveryController`
+- **Colección:** `usuario` ✅ (lee `pregunta_secreta` del usuario)
+- **Colección:** `recuperar-password` ✅ (solo para listar preguntas disponibles)
+
+---
+
 ## ✅ Resumen
 
 - ✅ Solo 2 colecciones necesarias: `usuario` y `recuperar-password`
+- ✅ Todas las operaciones de usuarios (registro, login, OAuth, recuperar contraseña) usan la colección `usuario`
+- ✅ La colección `recuperar-password` solo se usa para listar preguntas disponibles
 - ✅ Cache, Session y Queue NO usan MongoDB
 - ✅ No se necesitan migraciones
 - ✅ Las colecciones se crean automáticamente
