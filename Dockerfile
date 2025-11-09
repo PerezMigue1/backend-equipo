@@ -26,16 +26,27 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 # Configurar directorio de trabajo
 WORKDIR /var/www/html
 
-# Copiar archivos
+# Copiar archivos (excluyendo node_modules y otros archivos innecesarios)
 COPY . /var/www/html
 
 # Instalar dependencias
 RUN composer install --no-dev --optimize-autoloader
 
+# Crear directorios necesarios de storage y cache (asegurar que existan)
+RUN mkdir -p storage/app/public \
+    storage/framework/cache/data \
+    storage/framework/sessions \
+    storage/framework/views \
+    storage/logs \
+    bootstrap/cache
+
+# Establecer permisos para storage y bootstrap/cache (777 para asegurar escritura)
+RUN chmod -R 777 storage bootstrap/cache
+
 # Exponer puerto
 EXPOSE 8000
 
-# Hacer ejecutable el script de inicio (ya está en .)
+# Hacer ejecutable el script de inicio
 RUN chmod +x /var/www/html/start.sh
 
 # Usar el script de inicio
