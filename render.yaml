@@ -1,8 +1,8 @@
 services:
   - type: web
     name: backend-equipo
+    env: docker
     dockerfilePath: ./Dockerfile
-    dockerContext: .
     envVars:
       - key: APP_NAME
         value: "Módulo Usuario API"
@@ -40,19 +40,13 @@ services:
       - key: GOOGLE_CLIENT_SECRET
         sync: false
       - key: GOOGLE_REDIRECT_URI
-        fromService:
-          type: web
-          name: backend-equipo
-          property: host
+        sync: false
       - key: FACEBOOK_CLIENT_ID
         sync: false
       - key: FACEBOOK_CLIENT_SECRET
         sync: false
       - key: FACEBOOK_REDIRECT_URI
-        fromService:
-          type: web
-          name: backend-equipo
-          property: host
+        sync: false
       - key: CORS_ALLOWED_ORIGINS
         sync: false
     healthCheckPath: /up
