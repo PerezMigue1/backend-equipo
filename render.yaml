@@ -1,14 +1,11 @@
 services:
   - type: web
-    name: ModuloUsuario
-    buildCommand: |
-      composer install --no-dev --optimize-autoloader
-      npm ci
-      npm run build
-    startCommand: /var/www/html/start.sh
+    name: backend-equipo
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
     envVars:
       - key: APP_NAME
-        value: Laravel App
+        value: "Módulo Usuario API"
       - key: APP_ENV
         value: production
       - key: APP_DEBUG
@@ -18,20 +15,26 @@ services:
       - key: APP_URL
         fromService:
           type: web
-          name: ModuloUsuario
+          name: backend-equipo
           property: host
       - key: LOG_CHANNEL
         value: stderr
       - key: LOG_LEVEL
         value: error
+      - key: DB_CONNECTION
+        value: mongodb
       - key: MONGODB_URI
         sync: false
+      - key: MONGODB_DATABASE
+        value: equipo
       - key: CACHE_STORE
         value: file
       - key: SESSION_DRIVER
         value: file
       - key: QUEUE_CONNECTION
         value: sync
+      - key: FRONTEND_URL
+        sync: false
       - key: GOOGLE_CLIENT_ID
         sync: false
       - key: GOOGLE_CLIENT_SECRET
@@ -39,6 +42,19 @@ services:
       - key: GOOGLE_REDIRECT_URI
         fromService:
           type: web
-          name: ModuloUsuario
+          name: backend-equipo
           property: host
-    healthCheckPath: /
+      - key: FACEBOOK_CLIENT_ID
+        sync: false
+      - key: FACEBOOK_CLIENT_SECRET
+        sync: false
+      - key: FACEBOOK_REDIRECT_URI
+        fromService:
+          type: web
+          name: backend-equipo
+          property: host
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false
+    healthCheckPath: /up
+    plan: free
+    region: oregon

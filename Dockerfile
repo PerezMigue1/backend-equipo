@@ -23,10 +23,6 @@ RUN pecl install mongodb \
 # Instalar Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Instalar Node.js
-RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
-    && apt-get install -y nodejs
-
 # Configurar directorio de trabajo
 WORKDIR /var/www/html
 
@@ -35,8 +31,6 @@ COPY . /var/www/html
 
 # Instalar dependencias
 RUN composer install --no-dev --optimize-autoloader
-RUN npm ci
-RUN npm run build
 
 # Exponer puerto
 EXPOSE 8000
