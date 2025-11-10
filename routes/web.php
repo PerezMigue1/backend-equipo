@@ -22,6 +22,14 @@ Route::get('auth/google/callback', [GoogleAuthController::class, 'callback'])->n
 Route::get('auth/facebook', [FacebookAuthController::class, 'redirect'])->name('facebook.login');
 Route::get('auth/facebook/callback', [FacebookAuthController::class, 'callback'])->name('facebook.callback');
 
+// Health check endpoint (para Render.com)
+Route::get('up', function () {
+    return response()->json([
+        'status' => 'ok',
+        'timestamp' => now()->toDateTimeString(),
+    ], 200);
+})->name('health.check');
+
 // Páginas estáticas para Facebook Developer
 Route::get('privacy', function () {
     return response()->json(['message' => 'Privacy Policy']);
