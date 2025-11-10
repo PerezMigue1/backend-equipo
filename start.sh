@@ -44,22 +44,28 @@ mkdir -p storage/framework/views
 mkdir -p bootstrap/cache
 chmod -R 777 storage bootstrap/cache 2>/dev/null || true
 
-# Generar JWT_SECRET si no está configurada
+# Verificar JWT_SECRET
 echo "Verificando JWT_SECRET..."
 if [ -z "$JWT_SECRET" ]; then
-    echo "JWT_SECRET no está configurada, generando..."
+    echo "========================================"
+    echo "ADVERTENCIA: JWT_SECRET no está configurada"
+    echo "========================================"
+    echo "Por favor, configura JWT_SECRET en Render:"
+    echo "  1. Ve al dashboard de Render"
+    echo "  2. Selecciona el servicio 'backend-equipo'"
+    echo "  3. Ve a 'Environment'"
+    echo "  4. Agrega JWT_SECRET con una clave segura"
+    echo ""
+    echo "Generando clave temporal (se regenerara en cada reinicio)..."
     # Generar una clave secreta de 64 caracteres usando OpenSSL
     # Usamos base64 para asegurar caracteres seguros
-    JWT_SECRET=$(openssl rand -base64 64 | tr -d '\n' | head -c 64)
-    if [ -z "$JWT_SECRET" ]; then
-        # Fallback: usar /dev/urandom si openssl no está disponible
-        JWT_SECRET=$(head -c 64 /dev/urandom | base64 | tr -d '\n' | head -c 64)
-    fi
+    JWT_SECRET=$(openssl rand -base64 64 | tr -d '\n' | head -c 64 2>/dev/null || head -c 64 /dev/urandom | base64 | tr -d '\n' | head -c 64)
     export JWT_SECRET
-    echo "JWT_SECRET generada (longitud: ${#JWT_SECRET})"
-    echo "NOTA: Esta clave se regenerara en cada reinicio si no se configura en Render"
+    echo "JWT_SECRET temporal generada (longitud: ${#JWT_SECRET})"
+    echo "NOTA: Configura JWT_SECRET en Render para produccion"
+    echo "========================================"
 else
-    echo "JWT_SECRET ya está configurada desde variables de entorno"
+    echo "JWT_SECRET configurada correctamente desde variables de entorno"
 fi
 
 # Verificar que JWT_SECRET esté disponible
