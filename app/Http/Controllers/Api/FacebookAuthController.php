@@ -44,11 +44,17 @@ class FacebookAuthController extends Controller
             $token = $user->createToken('auth-token')->plainTextToken;
 
             // Redirect to frontend with token
-            $frontendUrl = env('FRONTEND_URL', 'http://localhost:3000');
+            // Usar config() en lugar de env() para mejor rendimiento y cache
+            $frontendUrl = config('app.frontend_url', 'https://modulo-usuario.netlify.app');
             return redirect($frontendUrl . '/auth/callback?token=' . $token . '&provider=facebook');
         } catch (\Exception $e) {
-            $frontendUrl = env('FRONTEND_URL', 'http://localhost:3000');
-            return redirect($frontendUrl . '/login?error=' . urlencode('Error al autenticar con Facebook. Intenta de nuevo.'));
+            \Log::error('Error en Facebook OAuth: ' . $e->getMessage());
+            // Usar config() en lugar de env() para mejor rendimiento y cache
+            $frontendUrl = config('app.frontend_url', 'https://modulo-usuario.netlify.app');
+            $errorMessage = config('app.debug') 
+                ? 'Error al autenticar con Facebook: ' . $e->getMessage()
+                : 'Error al autenticar con Facebook. Intenta de nuevo.';
+            return redirect($frontendUrl . '/login?error=' . urlencode($errorMessage));
         }
     }
 }

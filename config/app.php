@@ -58,6 +58,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Frontend URL
+    |--------------------------------------------------------------------------
+    |
+    | This URL is used for OAuth redirects and frontend callbacks.
+    | Set FRONTEND_URL in .env or Render environment variables.
+    | Default: https://modulo-usuario.netlify.app (production frontend)
+    |
+    */
+
+    'frontend_url' => env('FRONTEND_URL', 'https://modulo-usuario.netlify.app'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Timezone
     |--------------------------------------------------------------------------
     |
