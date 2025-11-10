@@ -44,6 +44,47 @@ mkdir -p storage/framework/views
 mkdir -p bootstrap/cache
 chmod -R 777 storage bootstrap/cache 2>/dev/null || true
 
+# Verificar y generar APP_KEY si no está configurada
+echo "Verificando APP_KEY..."
+if [ -z "$APP_KEY" ]; then
+    echo "APP_KEY no está configurada, generando..."
+    # Generar APP_KEY usando artisan key:generate
+    # Esto genera la clave en el formato correcto (base64:...)
+    php artisan key:generate --force 2>&1 || echo "Warning: No se pudo generar APP_KEY con artisan"
+    # Leer APP_KEY del archivo .env si se generó
+    if [ -f .env ]; then
+        APP_KEY=$(grep "^APP_KEY=" .env | cut -d '=' -f2- | tr -d '\n' | tr -d '\r')
+        export APP_KEY
+        echo "APP_KEY generada desde .env"
+    else
+        # Generar manualmente si no se pudo usar artisan
+        echo "Generando APP_KEY manualmente..."
+        APP_KEY="base64:$(openssl rand -base64 32 | tr -d '\n')"
+        export APP_KEY
+        echo "APP_KEY generada manualmente"
+    fi
+else
+    # Verificar que APP_KEY tenga el formato correcto
+    if [[ ! "$APP_KEY" =~ ^base64: ]]; then
+        echo "APP_KEY no tiene el formato correcto, corrigiendo..."
+        # Si APP_KEY no tiene el prefijo base64:, agregarlo
+        if [ ${#APP_KEY} -ge 32 ]; then
+            APP_KEY="base64:$(echo "$APP_KEY" | head -c 44)"
+        else
+            echo "ERROR: APP_KEY tiene longitud incorrecta"
+            exit 1
+        fi
+        export APP_KEY
+    fi
+    echo "APP_KEY configurada correctamente"
+fi
+
+# Verificar que APP_KEY esté disponible
+if [ -z "$APP_KEY" ]; then
+    echo "ERROR: APP_KEY no pudo ser generada"
+    exit 1
+fi
+
 # Verificar JWT_SECRET
 echo "Verificando JWT_SECRET..."
 if [ -z "$JWT_SECRET" ]; then
@@ -74,13 +115,14 @@ if [ -z "$JWT_SECRET" ]; then
     exit 1
 fi
 
-# Establecer JWT_SECRET en el entorno para todos los procesos PHP
+# Establecer APP_KEY y JWT_SECRET en el entorno para todos los procesos PHP
+export APP_KEY
 export JWT_SECRET
 
-# Cachear configuraciones (JWT_SECRET debe estar disponible como variable de entorno)
-# Pasamos JWT_SECRET explícitamente para asegurar que esté disponible
+# Cachear configuraciones (APP_KEY y JWT_SECRET deben estar disponibles como variables de entorno)
+# Pasamos APP_KEY y JWT_SECRET explícitamente para asegurar que estén disponibles
 echo "Cacheando configuraciones..."
-env JWT_SECRET="$JWT_SECRET" php artisan config:cache 2>&1 || echo "Config cache failed (continuando)"
+env APP_KEY="$APP_KEY" JWT_SECRET="$JWT_SECRET" php artisan config:cache 2>&1 || echo "Config cache failed (continuando)"
 
 # Cachear rutas
 echo "Cacheando rutas..."
@@ -90,9 +132,10 @@ php artisan route:cache 2>&1 || echo "Route cache failed (continuando)"
 echo "Verificando permisos finales..."
 ls -ld storage/framework/views || echo "ERROR: storage/framework/views no existe o no tiene permisos"
 
-# Iniciar servidor con JWT_SECRET disponible en el entorno
+# Iniciar servidor con APP_KEY y JWT_SECRET disponibles en el entorno
 echo "=== Iniciando servidor en puerto $PORT ==="
+echo "APP_KEY disponible: ${APP_KEY:0:20}..."
 echo "JWT_SECRET disponible: ${JWT_SECRET:0:20}..."
-# Asegurar que JWT_SECRET esté disponible para el servidor PHP
-exec env JWT_SECRET="$JWT_SECRET" php -S 0.0.0.0:$PORT -t public
+# Asegurar que APP_KEY y JWT_SECRET estén disponibles para el servidor PHP
+exec env APP_KEY="$APP_KEY" JWT_SECRET="$JWT_SECRET" php -S 0.0.0.0:$PORT -t public
 
