@@ -18,6 +18,7 @@ class CreateNewUser implements CreatesNewUsers
      */
     public function create(array $input): User
     {
+        // Validación ya se hace en RegisterController, pero la mantenemos aquí por seguridad
         Validator::make($input, [
             'name' => ['required', 'string', 'max:255'],
             'email' => [
@@ -25,14 +26,15 @@ class CreateNewUser implements CreatesNewUsers
                 'string',
                 'email',
                 'max:255',
-                Rule::unique(User::class),
+                Rule::unique('usuario', 'email'), // Especificar tabla de MongoDB
             ],
             'password' => $this->passwordRules(),
             'pregunta_secreta' => ['required', 'string'],
             'respuesta_secreta' => ['required', 'string'],
         ])->validate();
 
-        return User::create([
+        // Crear usuario con pregunta_secreta como array (el mutator lo convertirá a JSON)
+        $user = User::create([
             'name' => $input['name'],
             'email' => $input['email'],
             'password' => $input['password'],
@@ -41,5 +43,7 @@ class CreateNewUser implements CreatesNewUsers
                 'respuesta' => $input['respuesta_secreta']
             ],
         ]);
+
+        return $user;
     }
 }

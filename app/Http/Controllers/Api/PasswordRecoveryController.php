@@ -30,6 +30,17 @@ class PasswordRecoveryController extends Controller
         if (!$user) {
             return response()->json([
                 'errors' => ['email' => ['No se encontró un usuario con ese correo electrónico.']],
+                'message' => 'Usuario no encontrado.',
+            ], 404);
+        }
+
+        // Verificar si el usuario tiene pregunta secreta configurada
+        $preguntaSecretaAttr = $user->getAttribute('pregunta_secreta');
+        
+        if (!$preguntaSecretaAttr) {
+            return response()->json([
+                'errors' => ['email' => ['Este usuario no tiene una pregunta secreta configurada.']],
+                'message' => 'Usuario sin pregunta secreta.',
             ], 404);
         }
 
@@ -38,7 +49,8 @@ class PasswordRecoveryController extends Controller
         
         if (!$preguntaSecreta || !isset($preguntaSecreta['pregunta'])) {
             return response()->json([
-                'errors' => ['email' => ['Este usuario no tiene una pregunta secreta configurada.']],
+                'errors' => ['email' => ['Este usuario no tiene una pregunta secreta configurada correctamente.']],
+                'message' => 'Pregunta secreta inválida.',
             ], 404);
         }
 
