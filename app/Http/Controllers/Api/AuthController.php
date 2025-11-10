@@ -45,12 +45,12 @@ class AuthController extends Controller
 
             \Log::info('User authenticated successfully: ' . $user->email);
 
-            // Crear token ANTES de serializar el usuario
+            // Crear token JWT
             try {
-                $token = $user->createToken('auth-token')->plainTextToken;
-                \Log::info('Token created successfully for user: ' . $user->email);
+                $token = auth('api')->login($user);
+                \Log::info('Token JWT created successfully for user: ' . $user->email);
             } catch (\Exception $e) {
-                \Log::error('Error creating token: ' . $e->getMessage());
+                \Log::error('Error creating JWT token: ' . $e->getMessage());
                 \Log::error('Token error trace: ' . $e->getTraceAsString());
                 throw new \Exception('Error al crear el token de autenticación: ' . $e->getMessage());
             }
@@ -71,6 +71,8 @@ class AuthController extends Controller
             return response()->json([
                 'user' => $userData,
                 'token' => $token,
+                'token_type' => 'bearer',
+                'expires_in' => auth('api')->factory()->getTTL() * 60,
                 'message' => 'Login exitoso',
             ]);
         } catch (ValidationException $e) {
@@ -95,16 +97,26 @@ class AuthController extends Controller
     public function user(Request $request)
     {
         try {
-            $user = $request->user();
+            $user = auth('api')->user();
             
-            // Ocultar campos sensibles
-            $userData = $user->makeHidden([
-                'password', 
-                'two_factor_secret', 
-                'two_factor_recovery_codes',
-                'remember_token',
-                'pregunta_secreta' // No devolver la respuesta secreta
-            ])->toArray();
+            if (!$user) {
+                return response()->json([
+                    'message' => 'Usuario no autenticado.',
+                ], 401);
+            }
+            
+            // Preparar datos del usuario para la respuesta
+            // Obtener atributos directamente sin acceder a pregunta_secreta
+            $userData = [
+                '_id' => (string) $user->_id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'email_verified_at' => $user->email_verified_at ? $user->email_verified_at->toDateTimeString() : null,
+                'google_id' => $user->google_id ?? null,
+                'facebook_id' => $user->facebook_id ?? null,
+                'created_at' => $user->created_at ? $user->created_at->toDateTimeString() : null,
+                'updated_at' => $user->updated_at ? $user->updated_at->toDateTimeString() : null,
+            ];
             
             return response()->json($userData);
         } catch (\Exception $e) {
@@ -121,7 +133,7 @@ class AuthController extends Controller
      */
     public function logout(Request $request)
     {
-        $request->user()->currentAccessToken()->delete();
+        auth('api')->logout();
 
         return response()->json(['message' => 'Logged out successfully']);
     }

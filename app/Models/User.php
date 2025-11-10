@@ -4,13 +4,13 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Notifications\Notifiable;
-use Laravel\Sanctum\HasApiTokens;
 use MongoDB\Laravel\Auth\User as Authenticatable;
 use Laravel\Fortify\TwoFactorAuthenticatable;
+use Tymon\JWTAuth\Contracts\JWTSubject;
 
-class User extends Authenticatable
+class User extends Authenticatable implements JWTSubject
 {
-    use HasApiTokens, Notifiable, TwoFactorAuthenticatable;
+    use Notifiable, TwoFactorAuthenticatable;
 
     /**
      * The connection name for the model.
@@ -187,5 +187,26 @@ class User extends Authenticatable
         }
         
         return null;
+    }
+
+    /**
+     * Get the identifier that will be stored in the subject claim of the JWT.
+     * MongoDB usa ObjectId, necesitamos convertirlo a string.
+     *
+     * @return mixed
+     */
+    public function getJWTIdentifier()
+    {
+        return (string) $this->getKey();
+    }
+
+    /**
+     * Return a key value array, containing any custom claims to be added to the JWT.
+     *
+     * @return array
+     */
+    public function getJWTCustomClaims()
+    {
+        return [];
     }
 }

@@ -29,7 +29,7 @@ Route::post('/password/update', [PasswordRecoveryController::class, 'updatePassw
 
 // Protected routes (require authentication)
 // Note: OAuth routes are in web.php because they need session handling
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware('auth:api')->group(function () {
     Route::get('/user', [AuthController::class, 'user']);
     Route::post('/logout', [AuthController::class, 'logout']);
 });

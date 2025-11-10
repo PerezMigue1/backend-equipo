@@ -41,7 +41,8 @@ class FacebookAuthController extends Controller
                 $user->save();
             }
 
-            $token = $user->createToken('auth-token')->plainTextToken;
+            // Crear token JWT
+            $token = auth('api')->login($user);
 
             // Redirect to frontend with token
             // Usar config() en lugar de env() para mejor rendimiento y cache

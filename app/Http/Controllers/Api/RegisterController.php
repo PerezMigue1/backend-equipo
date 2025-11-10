@@ -59,11 +59,14 @@ class RegisterController extends Controller
                 'pregunta_secreta' // No devolver la respuesta secreta
             ])->toArray();
 
-            $token = $user->createToken('auth-token')->plainTextToken;
+            // Crear token JWT
+            $token = auth('api')->login($user);
 
             return response()->json([
                 'user' => $userData,
                 'token' => $token,
+                'token_type' => 'bearer',
+                'expires_in' => auth('api')->factory()->getTTL() * 60,
                 'message' => 'Registro exitoso',
             ], 201);
         } catch (\Illuminate\Validation\ValidationException $e) {

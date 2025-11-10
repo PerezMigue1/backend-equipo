@@ -11,12 +11,12 @@
     "license": "MIT",
     "require": {
         "php": "^8.2",
-        "laravel/framework": "^12.0",
-        "laravel/sanctum": "^4.2",
-        "laravel/socialite": "^5.23",
         "laravel/fortify": "^1.30",
+        "laravel/framework": "^12.0",
+        "laravel/socialite": "^5.23",
         "mongodb/laravel-mongodb": "^5.5",
-        "mongodb/mongodb": "*"
+        "mongodb/mongodb": "*",
+        "tymon/jwt-auth": "^2.2"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",
@@ -69,4 +69,3 @@
     "minimum-stability": "stable",
     "prefer-stable": true
 }
-
