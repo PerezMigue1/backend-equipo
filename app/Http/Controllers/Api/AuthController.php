@@ -15,25 +15,78 @@ class AuthController extends Controller
      */
     public function login(Request $request)
     {
-        $request->validate([
-            'email' => 'required|email',
-            'password' => 'required',
-        ]);
-
-        $user = User::where('email', $request->email)->first();
-
-        if (!$user || !Hash::check($request->password, $user->password)) {
-            throw ValidationException::withMessages([
-                'email' => ['The provided credentials are incorrect.'],
+        try {
+            $request->validate([
+                'email' => 'required|email',
+                'password' => 'required',
+            ], [
+                'email.required' => 'El correo electrónico es obligatorio.',
+                'email.email' => 'El correo electrónico debe ser válido.',
+                'password.required' => 'La contraseña es obligatoria.',
             ]);
+
+            \Log::info('Login attempt for email: ' . $request->email);
+
+            $user = User::where('email', $request->email)->first();
+
+            if (!$user) {
+                \Log::warning('User not found: ' . $request->email);
+                throw ValidationException::withMessages([
+                    'email' => ['No se encontró un usuario con este correo electrónico.'],
+                ]);
+            }
+
+            if (!Hash::check($request->password, $user->password)) {
+                \Log::warning('Invalid password for user: ' . $request->email);
+                throw ValidationException::withMessages([
+                    'email' => ['Las credenciales proporcionadas son incorrectas.'],
+                ]);
+            }
+
+            \Log::info('User authenticated successfully: ' . $user->email);
+
+            // Crear token ANTES de serializar el usuario
+            try {
+                $token = $user->createToken('auth-token')->plainTextToken;
+                \Log::info('Token created successfully for user: ' . $user->email);
+            } catch (\Exception $e) {
+                \Log::error('Error creating token: ' . $e->getMessage());
+                \Log::error('Token error trace: ' . $e->getTraceAsString());
+                throw new \Exception('Error al crear el token de autenticación: ' . $e->getMessage());
+            }
+
+            // Preparar datos del usuario para la respuesta
+            // Obtener atributos directamente sin acceder a pregunta_secreta
+            $userData = [
+                '_id' => (string) $user->_id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'email_verified_at' => $user->email_verified_at ? $user->email_verified_at->toDateTimeString() : null,
+                'google_id' => $user->google_id ?? null,
+                'facebook_id' => $user->facebook_id ?? null,
+                'created_at' => $user->created_at ? $user->created_at->toDateTimeString() : null,
+                'updated_at' => $user->updated_at ? $user->updated_at->toDateTimeString() : null,
+            ];
+
+            return response()->json([
+                'user' => $userData,
+                'token' => $token,
+                'message' => 'Login exitoso',
+            ]);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'errors' => $e->errors(),
+                'message' => 'Error de autenticación.',
+            ], 422);
+        } catch (\Exception $e) {
+            \Log::error('Error en login: ' . $e->getMessage());
+            \Log::error('Error trace: ' . $e->getTraceAsString());
+            return response()->json([
+                'message' => 'Error al iniciar sesión. Por favor, intenta de nuevo.',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+                'trace' => config('app.debug') ? $e->getTraceAsString() : null,
+            ], 500);
         }
-
-        $token = $user->createToken('auth-token')->plainTextToken;
-
-        return response()->json([
-            'user' => $user->makeHidden(['password', 'two_factor_secret', 'two_factor_recovery_codes']),
-            'token' => $token,
-        ]);
     }
 
     /**
@@ -41,9 +94,26 @@ class AuthController extends Controller
      */
     public function user(Request $request)
     {
-        return response()->json(
-            $request->user()->makeHidden(['password', 'two_factor_secret', 'two_factor_recovery_codes'])
-        );
+        try {
+            $user = $request->user();
+            
+            // Ocultar campos sensibles
+            $userData = $user->makeHidden([
+                'password', 
+                'two_factor_secret', 
+                'two_factor_recovery_codes',
+                'remember_token',
+                'pregunta_secreta' // No devolver la respuesta secreta
+            ])->toArray();
+            
+            return response()->json($userData);
+        } catch (\Exception $e) {
+            \Log::error('Error al obtener usuario: ' . $e->getMessage());
+            return response()->json([
+                'message' => 'Error al obtener información del usuario.',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
     }
 
     /**
@@ -56,4 +126,3 @@ class AuthController extends Controller
         return response()->json(['message' => 'Logged out successfully']);
     }
 }
-
