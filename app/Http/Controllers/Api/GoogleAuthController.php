@@ -45,9 +45,9 @@ class GoogleAuthController extends Controller
             // Crear token JWT
             $token = auth('api')->login($user);
 
-            // Redirigir directamente al home (no a /auth/callback)
+            // Redirigir al home con el token para que el frontend pueda autenticar
             $frontendUrl = config('app.frontend_url', 'https://modulo-usuario.netlify.app');
-            return redirect($frontendUrl);
+            return redirect($frontendUrl . '/?token=' . $token . '&provider=google');
         } catch (\Exception $e) {
             \Log::error('Error en Google OAuth: ' . $e->getMessage());
             $frontendUrl = config('app.frontend_url', 'https://modulo-usuario.netlify.app');
