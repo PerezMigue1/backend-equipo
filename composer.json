@@ -16,6 +16,7 @@
         "laravel/socialite": "^5.23",
         "mongodb/laravel-mongodb": "^5.5",
         "mongodb/mongodb": "*",
+        "sendgrid/sendgrid": "^8.1",
         "tymon/jwt-auth": "^2.2"
     },
     "require-dev": {

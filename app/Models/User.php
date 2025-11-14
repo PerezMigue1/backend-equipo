@@ -78,6 +78,9 @@ class User extends Authenticatable implements JWTSubject
         'telefono',
         'google_id',
         'facebook_id',
+        'otp_code',
+        'otp_expires_at',
+        'email_verified_at',
     ];
 
     /**
@@ -100,6 +103,7 @@ class User extends Authenticatable implements JWTSubject
     protected $casts = [
         'email_verified_at' => 'datetime',
         'two_factor_confirmed_at' => 'datetime',
+        'otp_expires_at' => 'datetime',
         'password' => 'hashed',
     ];
 

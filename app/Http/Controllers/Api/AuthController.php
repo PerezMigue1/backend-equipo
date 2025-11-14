@@ -29,6 +29,14 @@ class AuthController extends Controller
                 ], 401);
             }
 
+            // Verificar que la cuenta esté activada (email verificado)
+            if (!$user->email_verified_at) {
+                return response()->json([
+                    'message' => 'Tu cuenta no está activada. Revisa tu correo para el código de verificación.',
+                    'email' => $user->email,
+                ], 403);
+            }
+
             // Crear token JWT
             $token = auth('api')->login($user);
 

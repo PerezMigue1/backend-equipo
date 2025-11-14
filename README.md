@@ -4,14 +4,15 @@
 
 ## 📖 Descripción
 
-Este proyecto es una **API REST pura** construida con Laravel 12 que proporciona endpoints JSON para la gestión de usuarios. Incluye autenticación mediante JWT (JSON Web Tokens), OAuth con Google y Facebook, y recuperación de contraseñas mediante preguntas secretas.
+Este proyecto es una **API REST pura** construida con Laravel 12 que proporciona endpoints JSON para la gestión de usuarios. Incluye autenticación mediante JWT (JSON Web Tokens), verificación OTP por email con SendGrid para activación de cuentas, OAuth con Google y Facebook, y recuperación de contraseñas mediante preguntas secretas o códigos OTP.
 
 ### Características Principales
 
 - ✅ Autenticación con JWT
+- ✅ Verificación OTP por email (SendGrid) para activación de cuenta
 - ✅ OAuth con Google y Facebook
 - ✅ Registro y login de usuarios
-- ✅ Recuperación de contraseña con preguntas secretas
+- ✅ Recuperación de contraseña con preguntas secretas o OTP por email
 - ✅ Base de datos MongoDB
 - ✅ CORS configurado para frontend
 - ✅ API REST pura (sin vistas)
@@ -76,6 +77,7 @@ Este proyecto es una **API REST pura** construida con Laravel 12 que proporciona
 ### Servicios Externos Requeridos
 
 - **MongoDB**: Base de datos (local o MongoDB Atlas)
+- **SendGrid**: Para envío de emails con códigos OTP (obligatorio)
 - **Google OAuth**: Para autenticación con Google (opcional)
 - **Facebook OAuth**: Para autenticación con Facebook (opcional)
 
@@ -86,6 +88,9 @@ Este proyecto es una **API REST pura** construida con Laravel 12 que proporciona
 - `JWT_SECRET` - Clave secreta para JWT
 - `MONGODB_URI` - URI de conexión a MongoDB
 - `MONGODB_DATABASE` - Nombre de la base de datos
+- `SENDGRID_API_KEY` - API Key de SendGrid para envío de emails
+- `SENDGRID_FROM_EMAIL` - Email remitente verificado en SendGrid
+- `SENDGRID_FROM_NAME` - Nombre del remitente (opcional, por defecto: "Módulo Usuario API")
 
 **Opcionales (para OAuth):**
 - `GOOGLE_CLIENT_ID` - ID de cliente de Google OAuth
@@ -197,6 +202,11 @@ MONGODB_DATABASE=equipo
 
 JWT_SECRET=...  # Generado automáticamente con php artisan jwt:secret
 
+# SendGrid (Obligatorio para OTP)
+SENDGRID_API_KEY=SG.xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+SENDGRID_FROM_EMAIL=noreply@tudominio.com
+SENDGRID_FROM_NAME="Módulo Usuario API"
+
 # OAuth (Opcional)
 GOOGLE_CLIENT_ID=tu_client_id
 GOOGLE_CLIENT_SECRET=tu_client_secret
@@ -299,6 +309,15 @@ php artisan tinker
 ### Error de CORS
 - **Solución**: Verificar que `CORS_ALLOWED_ORIGINS` en `.env` incluya el origen del frontend
 
+### Error: "SENDGRID_API_KEY no está configurada"
+- **Solución**: Configurar `SENDGRID_API_KEY` y `SENDGRID_FROM_EMAIL` en `.env`. Obtén tu API Key desde [SendGrid](https://app.sendgrid.com/settings/api_keys)
+
+### Error: "No se pudo enviar el correo de activación"
+- **Solución**: 
+  - Verificar que el email remitente (`SENDGRID_FROM_EMAIL`) esté verificado en SendGrid
+  - Verificar que la API Key tenga permisos de envío de emails
+  - Revisar los logs en `storage/logs/laravel.log` para más detalles
+
 ## 📋 Endpoints API
 
 ### Públicos
@@ -324,24 +343,80 @@ php artisan tinker
   }
   ```
 
-- `POST /api/register` - Registrar nuevo usuario
+- `POST /api/register` - Registrar nuevo usuario (envía OTP por email)
   ```json
   {
     "name": "Usuario",
     "email": "usuario@example.com",
     "password": "password123",
-    "pregunta_secreta": {
-      "pregunta": "¿Cuál es el nombre de tu primera mascota?",
-      "respuesta": "Doki"
+    "password_confirmation": "password123",
+    "pregunta_secreta": "¿Cuál es el nombre de tu primera mascota?",
+    "respuesta_secreta": "Doki"
+  }
+  ```
+  Respuesta:
+  ```json
+  {
+    "message": "Registro exitoso. Ingresa el código enviado a tu correo para activar tu cuenta. El código expira en 10 minutos.",
+    "email": "usuario@example.com"
+  }
+  ```
+
+#### Verificación OTP (Activación de Cuenta)
+- `POST /api/otp/verify-activation` - Verificar código OTP para activar cuenta
+  ```json
+  {
+    "email": "usuario@example.com",
+    "code": "123456"
+  }
+  ```
+  Respuesta exitosa:
+  ```json
+  {
+    "message": "Código verificado correctamente. Cuenta activada.",
+    "token": "eyJ0eXAiOiJKV1QiLCJh...",
+    "token_type": "bearer",
+    "expires_in": 3600,
+    "user": {
+      "id": "...",
+      "name": "Usuario",
+      "email": "usuario@example.com",
+      "email_verified_at": "2024-01-01 12:00:00"
     }
+  }
+  ```
+
+- `POST /api/otp/resend-activation` - Reenviar código OTP de activación
+  ```json
+  {
+    "email": "usuario@example.com"
   }
   ```
 
 #### Recuperación de Contraseña
 - `GET /api/preguntas-secretas` - Obtener lista de preguntas secretas disponibles
 - `POST /api/password/verify-email` - Verificar que el email existe
+  - Método pregunta secreta (por defecto): `{"email": "...", "method": "pregunta"}`
+  - Método OTP: `{"email": "...", "method": "otp"}` (envía código OTP por email)
 - `POST /api/password/verify-answer` - Verificar respuesta secreta
 - `POST /api/password/update` - Actualizar contraseña
+  - Con pregunta secreta: `{"email": "...", "new_password": "...", "new_password_confirmation": "...", "method": "pregunta", "respuesta_secreta": "..."}`
+  - Con OTP: `{"email": "...", "new_password": "...", "new_password_confirmation": "...", "method": "otp", "otp_code": "123456"}`
+
+#### OTP para Recuperación de Contraseña
+- `POST /api/otp/verify-password-recovery` - Verificar código OTP para recuperación
+  ```json
+  {
+    "email": "usuario@example.com",
+    "code": "123456"
+  }
+  ```
+- `POST /api/otp/resend-password-recovery` - Reenviar código OTP de recuperación
+  ```json
+  {
+    "email": "usuario@example.com"
+  }
+  ```
 
 ### Protegidos (requieren token JWT)
 
@@ -414,6 +489,7 @@ Ver archivos de configuración para Render.com:
 
 - `INSTALACION.md` - Instrucciones detalladas de instalación
 - `CHECKLIST.md` - Checklist de verificación
+- `FRONTEND_INTEGRATION.md` - **Guía completa de integración para el frontend (OTP, flujos, ejemplos)**
 - Este `README.md` - Documentación principal
 
 ## ⚠️ Notas Importantes

@@ -4,19 +4,30 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\SendGridService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Log;
+use Carbon\Carbon;
 
 class PasswordRecoveryController extends Controller
 {
+    protected $sendGridService;
+
+    public function __construct(SendGridService $sendGridService)
+    {
+        $this->sendGridService = $sendGridService;
+    }
     /**
-     * Verify email and return secret question.
+     * Verify email and return secret question or send OTP.
+     * Ahora soporta dos métodos: pregunta secreta o OTP por email.
      */
     public function verifyEmail(Request $request)
     {
         $validator = Validator::make($request->all(), [
             'email' => 'required|email',
+            'method' => 'nullable|string|in:pregunta,otp',
         ]);
 
         if ($validator->fails()) {
@@ -34,6 +45,42 @@ class PasswordRecoveryController extends Controller
             ], 404);
         }
 
+        // Verificar que no sea usuario Google
+        if ($user->google_id) {
+            return response()->json([
+                'errors' => ['email' => ['Esta cuenta fue registrada con Google. Usa la opción de inicio de sesión con Google.']],
+                'message' => 'Cuenta de Google.',
+            ], 422);
+        }
+
+        $method = $request->input('method', 'pregunta'); // Por defecto pregunta secreta
+
+        // Si el método es OTP, enviar código
+        if ($method === 'otp') {
+            // Generar código OTP (6 dígitos)
+            $otpCode = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+            $user->otp_code = $otpCode;
+            $user->otp_expires_at = now()->addMinutes(10);
+            $user->save();
+
+            try {
+                $this->sendGridService->sendPasswordRecoveryOTP($user->email, $otpCode);
+                Log::info("Código de recuperación enviado a: {$user->email}");
+
+                return response()->json([
+                    'message' => 'Código enviado al correo. Expira en 10 minutos.',
+                    'method' => 'otp',
+                ]);
+            } catch (\Exception $e) {
+                Log::error('Error enviando correo de recuperación: ' . $e->getMessage());
+                return response()->json([
+                    'errors' => ['email' => ['No se pudo enviar el correo. Intenta de nuevo más tarde.']],
+                    'message' => 'Error al enviar correo.',
+                ], 500);
+            }
+        }
+
+        // Método por defecto: pregunta secreta
         // Verificar si el usuario tiene pregunta secreta configurada
         $preguntaSecretaAttr = $user->getAttribute('pregunta_secreta');
         
@@ -57,6 +104,7 @@ class PasswordRecoveryController extends Controller
         return response()->json([
             'email' => $user->email,
             'pregunta_secreta' => $preguntaSecreta['pregunta'],
+            'method' => 'pregunta',
         ]);
     }
 
@@ -105,6 +153,7 @@ class PasswordRecoveryController extends Controller
 
     /**
      * Update password.
+     * Ahora soporta dos métodos: pregunta secreta o OTP.
      */
     public function updatePassword(Request $request)
     {
@@ -112,7 +161,9 @@ class PasswordRecoveryController extends Controller
             'email' => 'required|email',
             'new_password' => 'required|string|min:8',
             'new_password_confirmation' => 'required|string|min:8|same:new_password',
-            'respuesta_secreta' => 'required|string',
+            'method' => 'nullable|string|in:pregunta,otp',
+            'respuesta_secreta' => 'required_if:method,pregunta|string',
+            'otp_code' => 'required_if:method,otp|string|size:6',
         ]);
 
         if ($validator->fails()) {
@@ -129,20 +180,60 @@ class PasswordRecoveryController extends Controller
             ], 404);
         }
 
-        // Obtener pregunta_secreta como array (decodifica JSON automáticamente)
-        $preguntaSecreta = $user->getPreguntaSecretaArray();
-        
-        // Verificar respuesta secreta antes de actualizar
-        if (!$preguntaSecreta || 
-            !isset($preguntaSecreta['respuesta']) ||
-            strtolower($preguntaSecreta['respuesta']) !== strtolower($request->respuesta_secreta)) {
-            return response()->json([
-                'errors' => ['respuesta_secreta' => ['La respuesta secreta no es correcta.']],
-            ], 422);
+        $method = $request->input('method', 'pregunta'); // Por defecto pregunta secreta
+
+        // Si el método es OTP, verificar código
+        if ($method === 'otp') {
+            // Verificar si hay código OTP
+            if (!$user->otp_code) {
+                return response()->json([
+                    'errors' => ['otp_code' => ['No hay código activo. Solicita uno nuevo.']],
+                ], 400);
+            }
+
+            // Verificar si el código ha expirado (10 minutos)
+            if ($user->otp_expires_at && Carbon::parse($user->otp_expires_at)->isPast()) {
+                // Limpiar código expirado
+                $user->otp_code = null;
+                $user->otp_expires_at = null;
+                $user->save();
+
+                return response()->json([
+                    'errors' => ['otp_code' => ['Código expirado. El código OTP solo es válido por 10 minutos. Solicita uno nuevo.']],
+                ], 400);
+            }
+
+            // Verificar el código
+            if ($user->otp_code !== $request->otp_code) {
+                return response()->json([
+                    'errors' => ['otp_code' => ['Código incorrecto. Verifica el código e intenta nuevamente.']],
+                ], 400);
+            }
+        } else {
+            // Método por defecto: pregunta secreta
+            // Obtener pregunta_secreta como array (decodifica JSON automáticamente)
+            $preguntaSecreta = $user->getPreguntaSecretaArray();
+            
+            // Verificar respuesta secreta antes de actualizar
+            if (!$preguntaSecreta || 
+                !isset($preguntaSecreta['respuesta']) ||
+                strtolower($preguntaSecreta['respuesta']) !== strtolower($request->respuesta_secreta)) {
+                return response()->json([
+                    'errors' => ['respuesta_secreta' => ['La respuesta secreta no es correcta.']],
+                ], 422);
+            }
         }
 
+        // Actualizar contraseña
         $user->password = Hash::make($request->new_password);
+        
+        // Limpiar código OTP después de cambiar contraseña
+        $user->otp_code = null;
+        $user->otp_expires_at = null;
+        
         $user->save();
+
+        Log::info("Contraseña actualizada para: {$user->email}");
 
         return response()->json([
             'message' => 'Contraseña actualizada exitosamente.',

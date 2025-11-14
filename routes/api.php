@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\OTPController;
 use App\Http\Controllers\Api\PasswordRecoveryController;
 use App\Http\Controllers\Api\RegisterController;
 use App\Http\Controllers\Api\SecretQuestionController;
@@ -22,10 +23,18 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::post('/register', [RegisterController::class, 'store']);
 Route::get('/preguntas-secretas', [SecretQuestionController::class, 'index']);
 
+// OTP routes (activación de cuenta)
+Route::post('/otp/verify-activation', [OTPController::class, 'verifyActivationOTP']);
+Route::post('/otp/resend-activation', [OTPController::class, 'resendActivationOTP']);
+
 // Password recovery routes
 Route::post('/password/verify-email', [PasswordRecoveryController::class, 'verifyEmail']);
 Route::post('/password/verify-answer', [PasswordRecoveryController::class, 'verifyAnswer']);
 Route::post('/password/update', [PasswordRecoveryController::class, 'updatePassword']);
+
+// OTP routes (recuperación de contraseña)
+Route::post('/otp/verify-password-recovery', [OTPController::class, 'verifyPasswordRecoveryOTP']);
+Route::post('/otp/resend-password-recovery', [OTPController::class, 'resendPasswordRecoveryOTP']);
 
 // Protected routes (require authentication)
 // Note: OAuth routes are in web.php because they need session handling

@@ -5,14 +5,24 @@ namespace App\Http\Controllers\Api;
 use App\Actions\Fortify\CreateNewUser;
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\SendGridService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 
 class RegisterController extends Controller
 {
+    protected $sendGridService;
+
+    public function __construct(SendGridService $sendGridService)
+    {
+        $this->sendGridService = $sendGridService;
+    }
+
     /**
      * Handle registration request.
+     * Ahora envía OTP en lugar de crear token inmediatamente.
      */
     public function store(Request $request, CreateNewUser $creator)
     {
@@ -50,32 +60,37 @@ class RegisterController extends Controller
 
             $user = $creator->create($request->all());
 
-            // Ocultar campos sensibles antes de devolver
-            $userData = $user->makeHidden([
-                'password', 
-                'two_factor_secret', 
-                'two_factor_recovery_codes',
-                'remember_token',
-                'pregunta_secreta' // No devolver la respuesta secreta
-            ])->toArray();
+            // Generar código OTP (6 dígitos)
+            $otpCode = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+            $user->otp_code = $otpCode;
+            $user->otp_expires_at = now()->addMinutes(10);
+            $user->email_verified_at = null; // No verificado hasta que se valide el OTP
+            $user->save();
 
-            // Crear token JWT
-            $token = auth('api')->login($user);
+            Log::info("Usuario registrado: {$user->email}, OTP: {$otpCode}, Expira en 10 minutos");
 
-            return response()->json([
-                'user' => $userData,
-                'token' => $token,
-                'token_type' => 'bearer',
-                'expires_in' => auth('api')->factory()->getTTL() * 60,
-                'message' => 'Registro exitoso',
-            ], 201);
+            // Enviar email con OTP
+            try {
+                $this->sendGridService->sendActivationOTP($user->email, $otpCode);
+                
+                return response()->json([
+                    'message' => 'Registro exitoso. Ingresa el código enviado a tu correo para activar tu cuenta. El código expira en 10 minutos.',
+                    'email' => $user->email,
+                ], 201);
+            } catch (\Exception $e) {
+                Log::error('Error al enviar correo de activación: ' . $e->getMessage());
+                return response()->json([
+                    'message' => 'Usuario registrado, pero no se pudo enviar el correo de activación. Por favor, solicita un nuevo código.',
+                    'email' => $user->email,
+                ], 201);
+            }
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
                 'errors' => $e->errors(),
                 'message' => 'Error de validación.',
             ], 422);
         } catch (\Exception $e) {
-            \Log::error('Error en registro: ' . $e->getMessage());
+            Log::error('Error en registro: ' . $e->getMessage());
             return response()->json([
                 'message' => 'Error al registrar usuario. Por favor, intenta de nuevo.',
                 'error' => config('app.debug') ? $e->getMessage() : null,
