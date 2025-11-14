@@ -76,6 +76,7 @@ class User extends Authenticatable implements JWTSubject
         'pregunta_secreta',
         'respuesta_secreta',
         'telefono',
+        'google_id',
         'facebook_id',
     ];
 
