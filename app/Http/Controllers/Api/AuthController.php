@@ -5,57 +5,119 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
-use Laravel\Socialite\Facades\Socialite;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 
-class GoogleAuthController extends Controller
+class AuthController extends Controller
 {
     /**
-     * Redirect to Google authentication page.
+     * Handle user login.
      */
-    public function redirect()
-    {
-        return Socialite::driver('google')->redirect();
-    }
-
-    /**
-     * Handle Google callback and create/update user.
-     * Después del login, redirige al callback del frontend con el token.
-     */
-    public function callback(Request $request)
+    public function login(Request $request)
     {
         try {
-            $googleUser = Socialite::driver('google')->user();
+            $request->validate([
+                'email' => 'required|email',
+                'password' => 'required|string',
+            ]);
 
-            $user = User::where('email', $googleUser->getEmail())->first();
+            $user = User::where('email', $request->email)->first();
 
-            if (!$user) {
-                $user = User::create([
-                    'name' => $googleUser->getName() ?: ($googleUser->user["name"] ?? 'Usuario Google'),
-                    'email' => $googleUser->getEmail(),
-                    'password' => bcrypt(Str::random(16)),
-                    'google_id' => $googleUser->getId(),
-                    'email_verified_at' => now(),
-                ]);
-            } else if (!$user->google_id) {
-                $user->google_id = $googleUser->getId();
-                $user->save();
+            if (!$user || !Hash::check($request->password, $user->password)) {
+                return response()->json([
+                    'message' => 'Credenciales inválidas',
+                ], 401);
             }
 
             // Crear token JWT
             $token = auth('api')->login($user);
 
-            // Redirigir al callback del frontend con el token para que pueda procesarlo
-            $frontendUrl = config('app.frontend_url', 'https://modulo-usuario.netlify.app');
-            return redirect($frontendUrl . '/auth/callback?token=' . $token . '&provider=google');
+            if (!$token) {
+                Log::error('Error creating JWT token for user: ' . $user->email);
+                return response()->json([
+                    'message' => 'Error al crear token de autenticación',
+                ], 500);
+            }
+
+            // Preparar datos del usuario (sin pregunta_secreta directamente)
+            $userData = [
+                'id' => (string) $user->_id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'google_id' => $user->google_id ?? null,
+                'facebook_id' => $user->facebook_id ?? null,
+            ];
+
+            return response()->json([
+                'message' => 'Login exitoso',
+                'token' => $token,
+                'user' => $userData,
+            ], 200);
         } catch (\Exception $e) {
-            \Log::error('Error en Google OAuth: ' . $e->getMessage());
-            $frontendUrl = config('app.frontend_url', 'https://modulo-usuario.netlify.app');
-            $errorMessage = config('app.debug') 
-                ? 'Error al autenticar con Google: ' . $e->getMessage()
-                : 'Error al autenticar con Google. Intenta de nuevo.';
-            return redirect($frontendUrl . '/login?error=' . urlencode($errorMessage));
+            Log::error('Error en login: ' . $e->getMessage());
+            Log::error('Stack trace: ' . $e->getTraceAsString());
+            
+            return response()->json([
+                'message' => 'Error interno del servidor',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
+    }
+
+    /**
+     * Get authenticated user.
+     */
+    public function user(Request $request)
+    {
+        try {
+            $user = auth('api')->user();
+
+            if (!$user) {
+                return response()->json([
+                    'message' => 'Usuario no autenticado',
+                ], 401);
+            }
+
+            // Preparar datos del usuario (sin pregunta_secreta directamente)
+            $userData = [
+                'id' => (string) $user->_id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'google_id' => $user->google_id ?? null,
+                'facebook_id' => $user->facebook_id ?? null,
+            ];
+
+            return response()->json([
+                'user' => $userData,
+            ], 200);
+        } catch (\Exception $e) {
+            Log::error('Error obteniendo usuario: ' . $e->getMessage());
+            
+            return response()->json([
+                'message' => 'Error al obtener usuario',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
+    }
+
+    /**
+     * Handle user logout.
+     */
+    public function logout(Request $request)
+    {
+        try {
+            auth('api')->logout();
+
+            return response()->json([
+                'message' => 'Logout exitoso',
+            ], 200);
+        } catch (\Exception $e) {
+            Log::error('Error en logout: ' . $e->getMessage());
+            
+            return response()->json([
+                'message' => 'Error al cerrar sesión',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
         }
     }
 }
-
