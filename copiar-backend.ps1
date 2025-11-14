@@ -60,7 +60,6 @@ Write-Host "✓ Routes" -ForegroundColor Cyan
 
 # Copiar Config
 $configFiles = @(
-    "sanctum.php",
     "cors.php",
     "database.php",
     "services.php",
@@ -72,7 +71,8 @@ $configFiles = @(
     "logging.php",
     "mail.php",
     "queue.php",
-    "session.php"
+    "session.php",
+    "jwt.php"
 )
 
 foreach ($file in $configFiles) {

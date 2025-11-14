@@ -90,7 +90,7 @@ La API estará disponible en `http://localhost:8000`
 
 ## 🔐 Autenticación
 
-La API usa Laravel Sanctum para autenticación con tokens. Los tokens se envían en el header:
+La API usa JWT (JSON Web Tokens) para autenticación. Los tokens se envían en el header:
 ```
 Authorization: Bearer {token}
 ```
