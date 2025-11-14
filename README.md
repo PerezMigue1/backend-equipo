@@ -164,6 +164,18 @@ php artisan key:generate
 php artisan jwt:secret
 ```
 
+**Configurar SendGrid en `.env`:**
+```env
+SENDGRID_API_KEY=SG.tu_api_key_aqui
+SENDGRID_FROM_EMAIL=tu-email-verificado@tudominio.com
+SENDGRID_FROM_NAME="Modulo Usuario"
+```
+
+**⚠️ Importante:** 
+- El email en `SENDGRID_FROM_EMAIL` debe estar verificado en SendGrid
+- Puedes verificar un email en: https://app.sendgrid.com/settings/sender_auth/senders/new
+- La API Key debe tener permisos de "Mail Send"
+
 ### 6. Configurar Permisos (Linux/macOS)
 
 ```bash
@@ -203,8 +215,10 @@ MONGODB_DATABASE=equipo
 JWT_SECRET=...  # Generado automáticamente con php artisan jwt:secret
 
 # SendGrid (Obligatorio para OTP)
+# Obtén tu API Key desde: https://app.sendgrid.com/settings/api_keys
+# El email remitente debe estar verificado en SendGrid
 SENDGRID_API_KEY=SG.xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-SENDGRID_FROM_EMAIL=noreply@tudominio.com
+SENDGRID_FROM_EMAIL=tu-email@tudominio.com
 SENDGRID_FROM_NAME="Módulo Usuario API"
 
 # OAuth (Opcional)

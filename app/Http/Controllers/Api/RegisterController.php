@@ -60,14 +60,25 @@ class RegisterController extends Controller
 
             $user = $creator->create($request->all());
 
-            // Generar código OTP (6 dígitos)
+            // Generar código OTP (6 dígitos) - Asegurar que sea string y sin espacios
             $otpCode = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+            $otpCode = trim((string) $otpCode); // Limpiar espacios y asegurar string
+            
+            // Verificar que tenga 6 dígitos
+            if (strlen($otpCode) !== 6) {
+                throw new \Exception('Error al generar código OTP: longitud incorrecta');
+            }
+            
             $user->otp_code = $otpCode;
             $user->otp_expires_at = now()->addMinutes(10);
             $user->email_verified_at = null; // No verificado hasta que se valide el OTP
             $user->save();
 
-            Log::info("Usuario registrado: {$user->email}, OTP: {$otpCode}, Expira en 10 minutos");
+            Log::info("Usuario registrado: {$user->email}, OTP: {$otpCode}, Expira en 10 minutos", [
+                'otp_code' => $otpCode,
+                'otp_code_length' => strlen($otpCode),
+                'otp_code_type' => gettype($otpCode)
+            ]);
 
             // Enviar email con OTP
             try {

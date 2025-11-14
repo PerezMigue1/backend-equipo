@@ -56,6 +56,17 @@ class OTPController extends Controller
                 ], 400);
             }
 
+            // Limpiar el código ingresado
+            $inputCode = trim((string) $request->code);
+            
+            // Logs para debugging
+            Log::info('🔍 Verificando OTP', [
+                'email' => $request->email,
+                'input_code' => $inputCode,
+                'input_code_length' => strlen($inputCode),
+                'input_code_type' => gettype($inputCode)
+            ]);
+
             // Verificar si el código ha expirado (10 minutos)
             if ($user->otp_expires_at && Carbon::parse($user->otp_expires_at)->isPast()) {
                 // Limpiar código expirado
@@ -68,8 +79,39 @@ class OTPController extends Controller
                 ], 400);
             }
 
-            // Verificar el código
-            if ($user->otp_code !== $request->code) {
+            // Obtener y limpiar el código guardado
+            $storedCode = trim((string) $user->otp_code);
+            
+            // Logs para debugging
+            Log::info('🔍 Código OTP encontrado', [
+                'email' => $request->email,
+                'stored_code' => $storedCode,
+                'stored_code_length' => strlen($storedCode),
+                'stored_code_type' => gettype($user->otp_code),
+                'otp_expires_at' => $user->otp_expires_at,
+                'is_expired' => $user->otp_expires_at && Carbon::parse($user->otp_expires_at)->isPast()
+            ]);
+
+            Log::info('🔍 Comparación de códigos', [
+                'stored' => $storedCode,
+                'input' => $inputCode,
+                'match' => $storedCode === $inputCode,
+                'stored_hex' => bin2hex($storedCode), // Ver caracteres invisibles
+                'input_hex' => bin2hex($inputCode)
+            ]);
+
+            // Verificar el código - Comparación estricta con strings limpios
+            if ($storedCode !== $inputCode) {
+                Log::error('Código OTP no coincide', [
+                    'email' => $request->email,
+                    'stored_code' => $storedCode,
+                    'stored_code_length' => strlen($storedCode),
+                    'input_code' => $inputCode,
+                    'input_code_length' => strlen($inputCode),
+                    'stored_type' => gettype($user->otp_code),
+                    'input_type' => gettype($inputCode)
+                ]);
+                
                 return response()->json([
                     'message' => 'Código incorrecto. Verifica el código e intenta nuevamente.',
                 ], 400);
@@ -145,11 +187,25 @@ class OTPController extends Controller
                 ], 400);
             }
 
-            // Generar nuevo código OTP (6 dígitos)
+            // Generar nuevo código OTP (6 dígitos) - Asegurar que sea string y sin espacios
             $otpCode = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+            $otpCode = trim((string) $otpCode); // Limpiar espacios y asegurar string
+            
+            // Verificar que tenga 6 dígitos
+            if (strlen($otpCode) !== 6) {
+                throw new \Exception('Error al generar código OTP: longitud incorrecta');
+            }
+            
             $user->otp_code = $otpCode;
             $user->otp_expires_at = now()->addMinutes(10);
             $user->save();
+            
+            Log::info("Código OTP generado para reenvío", [
+                'email' => $user->email,
+                'otp_code' => $otpCode,
+                'otp_code_length' => strlen($otpCode),
+                'otp_code_type' => gettype($otpCode)
+            ]);
 
             // Enviar email
             try {
@@ -219,6 +275,17 @@ class OTPController extends Controller
                 ], 400);
             }
 
+            // Limpiar el código ingresado
+            $inputCode = trim((string) $request->code);
+            
+            // Logs para debugging
+            Log::info('🔍 Verificando OTP de recuperación', [
+                'email' => $request->email,
+                'input_code' => $inputCode,
+                'input_code_length' => strlen($inputCode),
+                'input_code_type' => gettype($inputCode)
+            ]);
+
             // Verificar si el código ha expirado (10 minutos)
             if ($user->otp_expires_at && Carbon::parse($user->otp_expires_at)->isPast()) {
                 // Limpiar código expirado
@@ -231,8 +298,39 @@ class OTPController extends Controller
                 ], 400);
             }
 
-            // Verificar el código
-            if ($user->otp_code !== $request->code) {
+            // Obtener y limpiar el código guardado
+            $storedCode = trim((string) $user->otp_code);
+            
+            // Logs para debugging
+            Log::info('🔍 Código OTP de recuperación encontrado', [
+                'email' => $request->email,
+                'stored_code' => $storedCode,
+                'stored_code_length' => strlen($storedCode),
+                'stored_code_type' => gettype($user->otp_code),
+                'otp_expires_at' => $user->otp_expires_at,
+                'is_expired' => $user->otp_expires_at && Carbon::parse($user->otp_expires_at)->isPast()
+            ]);
+
+            Log::info('🔍 Comparación de códigos de recuperación', [
+                'stored' => $storedCode,
+                'input' => $inputCode,
+                'match' => $storedCode === $inputCode,
+                'stored_hex' => bin2hex($storedCode),
+                'input_hex' => bin2hex($inputCode)
+            ]);
+
+            // Verificar el código - Comparación estricta con strings limpios
+            if ($storedCode !== $inputCode) {
+                Log::error('Código OTP de recuperación no coincide', [
+                    'email' => $request->email,
+                    'stored_code' => $storedCode,
+                    'stored_code_length' => strlen($storedCode),
+                    'input_code' => $inputCode,
+                    'input_code_length' => strlen($inputCode),
+                    'stored_type' => gettype($user->otp_code),
+                    'input_type' => gettype($inputCode)
+                ]);
+                
                 return response()->json([
                     'message' => 'Código incorrecto. Verifica el código e intenta nuevamente.',
                 ], 400);
@@ -286,11 +384,25 @@ class OTPController extends Controller
                 ], 422);
             }
 
-            // Generar nuevo código OTP (6 dígitos)
+            // Generar nuevo código OTP (6 dígitos) - Asegurar que sea string y sin espacios
             $otpCode = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+            $otpCode = trim((string) $otpCode); // Limpiar espacios y asegurar string
+            
+            // Verificar que tenga 6 dígitos
+            if (strlen($otpCode) !== 6) {
+                throw new \Exception('Error al generar código OTP: longitud incorrecta');
+            }
+            
             $user->otp_code = $otpCode;
             $user->otp_expires_at = now()->addMinutes(10);
             $user->save();
+            
+            Log::info("Código OTP generado para reenvío", [
+                'email' => $user->email,
+                'otp_code' => $otpCode,
+                'otp_code_length' => strlen($otpCode),
+                'otp_code_type' => gettype($otpCode)
+            ]);
 
             // Enviar email
             try {
