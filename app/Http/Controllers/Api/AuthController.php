@@ -70,11 +70,29 @@ class AuthController extends Controller
     public function user(Request $request)
     {
         try {
+            // Log para debugging
+            $token = $request->bearerToken();
+            Log::info('Token recibido: ' . ($token ? substr($token, 0, 20) . '...' : 'No hay token'));
+            
+            // Intentar obtener el usuario
             $user = auth('api')->user();
-
+            
+            // Si no hay usuario, intentar obtener el error de JWT
             if (!$user) {
+                try {
+                    $payload = auth('api')->payload();
+                    Log::info('Payload JWT: ' . json_encode($payload->toArray()));
+                } catch (\Exception $jwtError) {
+                    Log::error('Error JWT al obtener payload: ' . $jwtError->getMessage());
+                    Log::error('Tipo de error: ' . get_class($jwtError));
+                }
+                
                 return response()->json([
                     'message' => 'Usuario no autenticado',
+                    'debug' => config('app.debug') ? [
+                        'has_token' => !empty($token),
+                        'jwt_secret_set' => !empty(config('jwt.secret')),
+                    ] : null,
                 ], 401);
             }
 
@@ -90,8 +108,27 @@ class AuthController extends Controller
             return response()->json([
                 'user' => $userData,
             ], 200);
+        } catch (\Tymon\JWTAuth\Exceptions\TokenExpiredException $e) {
+            Log::error('Token expirado: ' . $e->getMessage());
+            return response()->json([
+                'message' => 'Token expirado',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 401);
+        } catch (\Tymon\JWTAuth\Exceptions\TokenInvalidException $e) {
+            Log::error('Token inválido: ' . $e->getMessage());
+            return response()->json([
+                'message' => 'Token inválido',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 401);
+        } catch (\Tymon\JWTAuth\Exceptions\JWTException $e) {
+            Log::error('Error JWT: ' . $e->getMessage());
+            return response()->json([
+                'message' => 'Error de autenticación',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 401);
         } catch (\Exception $e) {
             Log::error('Error obteniendo usuario: ' . $e->getMessage());
+            Log::error('Stack trace: ' . $e->getTraceAsString());
             
             return response()->json([
                 'message' => 'Error al obtener usuario',

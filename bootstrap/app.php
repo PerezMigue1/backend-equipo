@@ -18,5 +18,31 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
-        //
+        // Manejar excepciones JWT
+        $exceptions->render(function (\Tymon\JWTAuth\Exceptions\TokenExpiredException $e, $request) {
+            if ($request->is('api/*')) {
+                return response()->json([
+                    'message' => 'Token expirado',
+                    'error' => config('app.debug') ? $e->getMessage() : null,
+                ], 401);
+            }
+        });
+
+        $exceptions->render(function (\Tymon\JWTAuth\Exceptions\TokenInvalidException $e, $request) {
+            if ($request->is('api/*')) {
+                return response()->json([
+                    'message' => 'Token inválido',
+                    'error' => config('app.debug') ? $e->getMessage() : null,
+                ], 401);
+            }
+        });
+
+        $exceptions->render(function (\Tymon\JWTAuth\Exceptions\JWTException $e, $request) {
+            if ($request->is('api/*')) {
+                return response()->json([
+                    'message' => 'Error de autenticación',
+                    'error' => config('app.debug') ? $e->getMessage() : null,
+                ], 401);
+            }
+        });
     })->create();
