@@ -93,7 +93,6 @@ Route::get('/usuarios/list', function () {
                 'name' => $docArray['name'] ?? null,
                 'email' => $docArray['email'] ?? null,
                 'pregunta_secreta' => $preguntaSecreta,
-                'google_id' => $docArray['google_id'] ?? null,
                 'facebook_id' => $docArray['facebook_id'] ?? null,
                 'remember_token' => isset($docArray['remember_token']) ? substr($docArray['remember_token'], 0, 20) . '...' : null,
                 'created_at' => $createdAt,

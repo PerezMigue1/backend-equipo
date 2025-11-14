@@ -1,6 +1,5 @@
 <?php
 
-use App\Http\Controllers\Api\GoogleAuthController;
 use App\Http\Controllers\Api\FacebookAuthController;
 use Illuminate\Support\Facades\Route;
 
@@ -13,10 +12,6 @@ use Illuminate\Support\Facades\Route;
 | Todas las demás rutas están en api.php
 |
 */
-
-// Rutas para autenticación con Google
-Route::get('auth/google', [GoogleAuthController::class, 'redirect'])->name('google.login');
-Route::get('auth/google/callback', [GoogleAuthController::class, 'callback'])->name('google.callback');
 
 // Rutas para autenticación con Facebook
 Route::get('auth/facebook', [FacebookAuthController::class, 'redirect'])->name('facebook.login');
